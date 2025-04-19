@@ -41,6 +41,7 @@ kill:
 	@if pgrep -x "sm" > /dev/null; then \
 		echo "Killing sm process..."; \
 		pkill -x "sm"; \
+		pkill -x "ffplay"; \
 	else \
 		echo "No sm process found running."; \
 	fi

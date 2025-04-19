@@ -17,18 +17,20 @@
 #include <signal.h>
 #include "err.h"
 #include "spinner.h"
-#include <time.h>             // ← add this
+#include <time.h>            
 
 #define ASSETS_DIR "assets"
 #define AUDIO_DIR "assets/audio"
 #define ASCII_DIR "assets/ascii"
 #define FRAMES_DIR "assets/frames"
 
+
 #define DEFAULT_FPS  "10"
 #define DEFAULT_WIDTH  "900"    // Doubled from 80
 #define DEFAULT_HEIGHT "40"     // Doubled from 40
 #define DEFAULT_START_FRAME "1"
 #define DEFAULT_VIDEO_PATH "rr.mp4"
+#define DEFAULT_VIDEO_NAME "rr"
 
 #define BUFFER_SIZE 1024
 
@@ -37,14 +39,16 @@ char* FPS = DEFAULT_FPS;
 char* WIDTH = DEFAULT_WIDTH;
 char* HEIGHT = DEFAULT_HEIGHT;
 char* START_FRAME = DEFAULT_START_FRAME;
+char VIDEO_NAME[PATH_MAX] = DEFAULT_VIDEO_NAME;
 
-static volatile sig_atomic_t sigint_received = 0;
 
-// SIGINT handler: just record that it happened
-static void handle_sigint(int sig) {
-    (void)sig;
-    sigint_received = 1;
-}
+// static volatile sig_atomic_t sigint_received = 0;
+
+// // SIGINT handler: just record that it happened
+// static void handle_sigint(int sig) {
+//     (void)sig;
+//     sigint_received = 1;
+// }
 
 void extract_images_grayscale();
 char* get_usage_msg(const char *program_name);
@@ -74,12 +78,12 @@ static void print_usage(const char *prog) {
 
 int main(int argc, char *argv[])
 {
-    // install our SIGINT handler
-    struct sigaction sa = { 0 };
-    sa.sa_handler = handle_sigint;
-    sa.sa_flags   = SA_RESTART;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGINT, &sa, NULL);
+    // // install our SIGINT handler
+    // struct sigaction sa = { 0 };
+    // sa.sa_handler = handle_sigint;
+    // sa.sa_flags   = SA_RESTART;
+    // sigemptyset(&sa.sa_mask);
+    // sigaction(SIGINT, &sa, NULL);
 
     int c, optidx = 0;
     int opts_given = 0;    // ← counter for any options
@@ -129,10 +133,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (opts_given != 0) {
+    // derive VIDEO_NAME from VIDEO_PATH
+    {
+        char *base = strrchr(VIDEO_PATH, '/');
+        base = base ? base+1 : VIDEO_PATH;
+        strncpy(VIDEO_NAME, base, sizeof(VIDEO_NAME)-1);
+        VIDEO_NAME[sizeof(VIDEO_NAME)-1] = '\0';
+        char *dot = strrchr(VIDEO_NAME, '.');
+        if (dot) *dot = '\0';
+    }
 
+    if (opts_given) {
         setup();
-
     }
 
     play();
@@ -153,21 +165,37 @@ void setup(){
     batch_convert_to_ascii();
 
 }
+
+void  add_new_anim(const char* vid_path){
+    if(vid_path == NULL) {
+        fatal_error("Invalid path provided for video extraction, path is NULL");
+    }
+    strncpy(VIDEO_PATH, vid_path, sizeof(VIDEO_PATH)-1);
+
+    extract_audio();
+    extract_images_grayscale();
+    batch_convert_to_ascii();
+}
+
 void play_audio(){
-    // redirect ffplay output so it doesn't write into your console
+    // redirect ffplay output
     int fd = open("/dev/null", O_RDWR);
     dup2(fd, STDOUT_FILENO);
     dup2(fd, STDERR_FILENO);
     close(fd);
 
+    // play assets/audio/<video_name>.mp3
+    char audio_file[PATH_MAX + sizeof(AUDIO_DIR) + sizeof(".mp3") + sizeof(VIDEO_NAME)];
+    snprintf(audio_file, sizeof(audio_file), AUDIO_DIR"/%s.mp3", VIDEO_NAME);
     execlp("ffplay", "ffplay",
            "-nodisp",
            "-autoexit",
            "-loglevel", "quiet",
-           AUDIO_DIR"/audio.mp3",
+           audio_file,
            NULL);
-    fatal_error("Failed to execute ffplay for audio playback");
+    fatal_error("Failed to exec ffplay");
 }
+
 void draw_ascii_frame(const char *frame_path) {
     if (frame_path == NULL) {
         fatal_error("Invalid frame path provided, path is NULL");
@@ -304,11 +332,9 @@ void empty_directory(const char *dir_name) {
          fatal_error("Invalid directory name provided, path is NULL");
       }
     struct stat st = {0};
-    if (stat(dir_name, &st) == 0) {
-        // Directory exists, just empty it
-        empty_directory(dir_name);
-    } else {
-        // Create new directory
+    if (stat(dir_name, &st) != 0) {
+        
+   
         if (mkdir(dir_name, 0755) == -1) {
             fatal_error("Failed to create directory: %s (Error: %s)",
                       dir_name, strerror(errno));
@@ -334,41 +360,34 @@ char* get_usage_msg(const char *program_name)
 
 void extract_audio() {
     pid_t pid = fork();
-    if (pid < 0)  fatal_error("fork() failed: %s", strerror(errno));
-
     if (pid == 0) {
-        // child: do work
+        // child: write to assets/audio/<video_name>.mp3
+        char out[PATH_MAX + sizeof(AUDIO_DIR) + sizeof("/.mp3") + sizeof(VIDEO_NAME)];
+        snprintf(out, sizeof(out), AUDIO_DIR"/%s.mp3", VIDEO_NAME);
         execlp("ffmpeg", "ffmpeg",
                "-loglevel", "quiet",
-               "-i", VIDEO_PATH, // Input video file
-               "-vn",                   // No video
-               "-acodec", "libmp3lame", // MP3 codec
-               "-q:a", "2",             // Good quality
-               AUDIO_DIR"/audio.mp3",
+               "-i", VIDEO_PATH,
+               "-vn",
+               "-acodec", "libmp3lame",
+               "-q:a", "2",
+               out,
                NULL);
         _exit(EXIT_FAILURE);
-    } else {
-        // parent: spinner only
-        spinner_t *sp = spinner_create("Extracting audio");
-        spinner_start(sp);
-        waitpid(pid, NULL, 0);
-        spinner_stop(sp, true);
-        spinner_destroy(sp);
     }
+    // … parent spinner …
 }
 
 void extract_images_grayscale() {
     pid_t pid = fork();
-    if (pid < 0)  fatal_error("fork() failed: %s", strerror(errno));
-
     if (pid == 0) {
-        // child: do work
-        char output_pattern[512];
-        snprintf(output_pattern, sizeof(output_pattern), "%s/gray_%%04d.png", FRAMES_DIR);
+        /* child: write to assets/frames/<video_name>_gray_%04d.png */
+        char output_pattern[PATH_MAX + sizeof(FRAMES_DIR) + sizeof("_gray_%%04d.png")];
+        snprintf(output_pattern, sizeof(output_pattern),
+                 "%s/%s_gray_%%04d.png", FRAMES_DIR, VIDEO_NAME);
 
         char filter_str[256];
-        snprintf(filter_str, sizeof(filter_str), "fps=%s,scale=%s:-1,format=gray",
-                 FPS, WIDTH);
+        snprintf(filter_str, sizeof(filter_str),
+                 "fps=%s,scale=%s:-1,format=gray", FPS, WIDTH);
 
         execlp("ffmpeg", "ffmpeg",
                "-loglevel", "quiet",
@@ -378,19 +397,31 @@ void extract_images_grayscale() {
                output_pattern,
                NULL);
         _exit(EXIT_FAILURE);
-    } else {
-        spinner_t *sp = spinner_create("Converting to grayscale");
+    }
+    else if (pid < 0) {
+        fatal_error("fork() failed: %s", strerror(errno));
+    }
+    else {
+        /* parent – wait for ffmpeg to finish */
+        spinner_t *sp = spinner_create("Extracting frames");
         spinner_start(sp);
-        waitpid(pid, NULL, 0);
-        spinner_stop(sp, true);
+
+        int status;
+        waitpid(pid, &status, 0);
+
+        spinner_stop(sp, WIFEXITED(status) && WEXITSTATUS(status) == 0);
         spinner_destroy(sp);
+
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            fatal_error("Failed to extract frames");
+        }
     }
 }
 
 void batch_convert_to_ascii() {
     pid_t pid = fork();
     if (pid < 0)  fatal_error("fork() failed: %s", strerror(errno));
-
+    
     if (pid == 0) {
         // child: do work
         DIR *dir = opendir(FRAMES_DIR);
@@ -403,6 +434,7 @@ void batch_convert_to_ascii() {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
                 continue;
             }
+
 
             char *ext = strrchr(entry->d_name, '.');
             if (ext == NULL || strncmp(ext, ".png", 4) != 0) {
