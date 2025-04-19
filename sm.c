@@ -17,7 +17,8 @@
 #include <signal.h>
 #include "err.h"
 #include "spinner.h"
-#include <time.h>            
+#include <time.h>    
+#include <fnmatch.h>        
 
 #define ASSETS_DIR "assets"
 #define AUDIO_DIR "assets/audio"
@@ -28,9 +29,10 @@
 #define DEFAULT_FPS  "10"
 #define DEFAULT_WIDTH  "900"    // Doubled from 80
 #define DEFAULT_HEIGHT "40"     // Doubled from 40
-#define DEFAULT_START_FRAME "1"
+#define DEFAULT_START_TIME "00:00:00" // Start time in HH:MM:SS format
 #define DEFAULT_VIDEO_PATH "rr.mp4"
 #define DEFAULT_VIDEO_NAME "rr"
+#define DEFAULT_DURATION  "0"    // “0” means “no end limit”
 
 #define BUFFER_SIZE 1024
 
@@ -38,7 +40,8 @@ char VIDEO_PATH[PATH_MAX] = DEFAULT_VIDEO_PATH;
 char* FPS = DEFAULT_FPS;
 char* WIDTH = DEFAULT_WIDTH;
 char* HEIGHT = DEFAULT_HEIGHT;
-char* START_FRAME = DEFAULT_START_FRAME;
+char* START_TIME = DEFAULT_START_TIME;
+char* DURATION  = DEFAULT_DURATION;
 char VIDEO_NAME[PATH_MAX] = DEFAULT_VIDEO_NAME;
 
 
@@ -63,18 +66,10 @@ void extract_audio();
 void play_audio();
 int directory_exists(const char *path);
 int is_directory_empty(const char *dir_path);
+int dir_contains(const char *dir_path, const char *file_name);
+int video_extracted();
 
-static void print_usage(const char *prog) {
-    fprintf(stderr,
-      "Usage: %s [OPTIONS]\n"
-      "  -i, --input   PATH    input video path (optional)\n"
-      "  -f, --fps     NUM     frames per second (default %s)\n"
-      "  -w, --width   NUM     output width (default %s)\n"
-      "  -t, --height  NUM     output height (default %s)\n"
-      "  -s, --start   NUM     start frame (default %s)\n"
-      "  -h, --help            this message\n",
-      prog, DEFAULT_FPS, DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_START_FRAME);
-}
+
 
 int main(int argc, char *argv[])
 {
@@ -87,6 +82,7 @@ int main(int argc, char *argv[])
 
     int c, optidx = 0;
     int opts_given = 0;    // ← counter for any options
+    int new_file = 0;    // ← counter for any new files
 
     static struct option longopts[] = {
         { "input",  required_argument, 0, 'i' },
@@ -94,15 +90,20 @@ int main(int argc, char *argv[])
         { "width",  required_argument, 0, 'w' },
         { "height", required_argument, 0, 't' },
         { "start",  required_argument, 0, 's' },
-        {"reset",  no_argument,       0, 'r' },
+        { "end",    required_argument, 0, 'e' },    
+        { "duration", required_argument, 0, 'd' },  // Add duration option
+        { "play",   required_argument, 0, 'p' },
+        { "reset",  no_argument,       0, 'r' },
         { "help",   no_argument,       0, 'h' },
         { 0,0,0,0 }
     };
 
-    while ((c = getopt_long(argc, argv, "i:f:w:t:s:h:r", longopts, &optidx)) != -1) {
+    /* only i,f,w,t,s,e,d,p take arguments; r and h are flags */
+    while ((c = getopt_long(argc, argv, "i:f:w:t:s:e:d:p:rh", longopts, &optidx)) != -1) {
         switch (c) {
           case 'i':
             opts_given++;
+            new_file = 1;
             strncpy(VIDEO_PATH, optarg, sizeof(VIDEO_PATH)-1);
             break;
           case 'f':
@@ -119,31 +120,45 @@ int main(int argc, char *argv[])
             break;
           case 's':
             opts_given++;
-            START_FRAME = optarg;
+            START_TIME = optarg;
+            break;
+          case 'e':
+          case 'd':  // Both -e and -d set the duration
+            opts_given++;
+            DURATION = optarg;
             break;
           case 'r':
             opts_given++;
 
             break;
+        case 'p':
+
+            strncpy(VIDEO_NAME, optarg, sizeof(VIDEO_NAME));
+            VIDEO_NAME[sizeof(VIDEO_NAME)-1] = '\0';
+            
+            break;
           case 'h':
-            print_usage(argv[0]);
+            user_error("%s",get_usage_msg(argv[0]));
             exit(EXIT_SUCCESS);
           default:
+            user_error("Invalid option provided.");
             exit(EXIT_FAILURE);
         }
     }
 
-    // derive VIDEO_NAME from VIDEO_PATH
-    {
-        char *base = strrchr(VIDEO_PATH, '/');
-        base = base ? base+1 : VIDEO_PATH;
-        strncpy(VIDEO_NAME, base, sizeof(VIDEO_NAME)-1);
-        VIDEO_NAME[sizeof(VIDEO_NAME)-1] = '\0';
-        char *dot = strrchr(VIDEO_NAME, '.');
-        if (dot) *dot = '\0';
-    }
+   
 
     if (opts_given) {
+
+        if(new_file){
+            char *base = strrchr(VIDEO_PATH, '/');
+            base = base ? base+1 : VIDEO_PATH;
+            strncpy(VIDEO_NAME, base, sizeof(VIDEO_NAME)-1);
+            VIDEO_NAME[sizeof(VIDEO_NAME)-1] = '\0';
+            char *dot = strrchr(VIDEO_NAME, '.');
+            if (dot) *dot = '\0';
+        }
+
         setup();
     }
 
@@ -219,9 +234,10 @@ void draw_frames() {
     // Existing directory checks...
 
     // Get sorted list of frame files
-    char command[1024];
-    snprintf(command, sizeof(command), "ls %s/*.txt | sort -V", ASCII_DIR);
-
+    char command[PATH_MAX + sizeof(ASCII_DIR) + sizeof("/*.txt") + sizeof(VIDEO_NAME)];
+    snprintf(command, sizeof(command), "ls %s/%s*.txt | sort -V", ASCII_DIR, VIDEO_NAME);
+  
+    
     FILE *pipe = popen(command, "r");
     if (!pipe) {
         fatal_error("Failed to list files in directory: %s", ASCII_DIR);
@@ -242,6 +258,7 @@ void draw_frames() {
         printf("\033[2J\033[1;1H");
 
         // Draw the frame
+        
         draw_ascii_frame(file_path);
         frame_count++;
 
@@ -257,20 +274,55 @@ void draw_frames() {
     pclose(pipe);
 }
 
+int video_extracted(){
+
+    
+     char audio_file[PATH_MAX + sizeof(AUDIO_DIR) + sizeof(".mp3") + sizeof(VIDEO_NAME)] = {0} ;
+     char ascii_file[PATH_MAX + sizeof(ASCII_DIR) + sizeof(".txt") + sizeof(VIDEO_NAME)] = {0} ;
+    snprintf(audio_file, sizeof(audio_file), "%s.mp3", VIDEO_NAME);
+    snprintf(ascii_file, sizeof(ascii_file), "%s_gray_*.txt", VIDEO_NAME);
+
+
+
+    if (is_directory_empty(AUDIO_DIR) || is_directory_empty(ASCII_DIR) || !dir_contains(AUDIO_DIR, audio_file) || !dir_contains(ASCII_DIR, ascii_file)) {
+        return false;
+    }
+    return true;
+}
+int dir_contains(const char *dir_path, const char *file_name) {
+    if (dir_path == NULL || file_name == NULL) {
+        return false;
+    }
+
+    DIR *dir = opendir(dir_path);
+    if (dir == NULL) {
+        return false;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (fnmatch(file_name, entry->d_name, 0) == 0) {
+            closedir(dir);
+            return true;
+        }
+    }
+    
+    closedir(dir);
+    return false;
+}
 void play(){
-    if(is_directory_empty(AUDIO_DIR)){
-        fatal_error("Audio directory is empty, no audio to play");
+   
+    if(!video_extracted() && strcmp(VIDEO_NAME, DEFAULT_VIDEO_NAME) != 0){
+        user_fatal("%s  doesn't exists , try inserting a new one with -i <video_path>", VIDEO_NAME);
     }
-    if(is_directory_empty(ASCII_DIR)){
-        fatal_error("ASCII directory is empty, no ascii to play");
-    }
+
 
     pid_t pid = fork();
     if (pid == -1) {
         fatal_error("Fork failed: %s", strerror(errno));
     }
     if(pid == 0){
-        play_audio();
+        draw_frames();
     }
     else{
 
@@ -279,7 +331,8 @@ void play(){
             fatal_error("Fork failed: %s", strerror(errno));
         }
         if(pid2 == 0){
-            draw_frames();
+            play_audio();
+
         }
         else{
             int status;
@@ -287,7 +340,6 @@ void play(){
             waitpid(pid2, &status, 0);
         }
 
-        printf("ASCII art playback completed.\n");
 
     }
 
@@ -359,43 +411,104 @@ char* get_usage_msg(const char *program_name)
 }
 
 void extract_audio() {
+
     pid_t pid = fork();
     if (pid == 0) {
         // child: write to assets/audio/<video_name>.mp3
         char out[PATH_MAX + sizeof(AUDIO_DIR) + sizeof("/.mp3") + sizeof(VIDEO_NAME)];
         snprintf(out, sizeof(out), AUDIO_DIR"/%s.mp3", VIDEO_NAME);
-        execlp("ffmpeg", "ffmpeg",
-               "-loglevel", "quiet",
-               "-i", VIDEO_PATH,
-               "-vn",
-               "-acodec", "libmp3lame",
-               "-q:a", "2",
-               out,
-               NULL);
+        if(access(out, F_OK) == 0) {
+            unlink(out);  // Remove the existing file
+        }
+        char *args[20];
+        int arg_count = 0;
+        
+        args[arg_count++] = "ffmpeg";
+        args[arg_count++] = "-loglevel";
+        args[arg_count++] = "quiet";
+        args[arg_count++] = "-ss";
+        args[arg_count++] = START_TIME;
+        args[arg_count++] = "-i";
+        args[arg_count++] = VIDEO_PATH;
+        
+        // Add duration parameter if specified
+        if (atoi(DURATION) > 0) {
+            args[arg_count++] = "-t";
+            args[arg_count++] = DURATION;
+        }
+        
+        args[arg_count++] = "-vn";
+        args[arg_count++] = "-acodec";
+        args[arg_count++] = "libmp3lame";
+        args[arg_count++] = "-q:a";
+        args[arg_count++] = "2";
+        args[arg_count++] = out;
+        args[arg_count++] = NULL;  // Terminate the arguments list
+        
+        execvp("ffmpeg", args);
         _exit(EXIT_FAILURE);
     }
-    // … parent spinner …
+    else if (pid < 0) {
+        fatal_error("fork() failed: %s", strerror(errno));
+    }
+    else {
+        /* parent – wait for ffmpeg to finish */
+        spinner_t *sp = spinner_create("Extracting audio");
+        spinner_start(sp);
+
+        int status;
+        waitpid(pid, &status, 0);
+
+        spinner_stop(sp, WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        spinner_destroy(sp);
+
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            if (!dir_contains(".",VIDEO_PATH)) {
+                user_fatal("Video file not found: %s", VIDEO_PATH);
+            } else {
+                fatal_error("Failed to extract audio");
+            }
+        }
+    }
 }
 
 void extract_images_grayscale() {
     pid_t pid = fork();
     if (pid == 0) {
-        /* child: write to assets/frames/<video_name>_gray_%04d.png */
         char output_pattern[PATH_MAX + sizeof(FRAMES_DIR) + sizeof("_gray_%%04d.png")];
         snprintf(output_pattern, sizeof(output_pattern),
                  "%s/%s_gray_%%04d.png", FRAMES_DIR, VIDEO_NAME);
+        
+        
 
-        char filter_str[256];
-        snprintf(filter_str, sizeof(filter_str),
-                 "fps=%s,scale=%s:-1,format=gray", FPS, WIDTH);
-
-        execlp("ffmpeg", "ffmpeg",
-               "-loglevel", "quiet",
-               "-i", VIDEO_PATH,
-               "-vf", filter_str,
-               "-start_number", START_FRAME,
-               output_pattern,
-               NULL);
+        // Build the ffmpeg command with proper time-based extraction
+        char *args[20];
+        int arg_count = 0;
+        
+        args[arg_count++] = "ffmpeg";
+        args[arg_count++] = "-loglevel";
+        args[arg_count++] = "quiet";
+        args[arg_count++] = "-ss";
+        args[arg_count++] = START_TIME;
+        args[arg_count++] = "-i";
+        args[arg_count++] = VIDEO_PATH;
+        
+        // Add duration parameter if specified
+        if (atoi(DURATION) > 0) {
+            args[arg_count++] = "-t";
+            args[arg_count++] = DURATION;
+        }
+        
+        // Apply video filters
+        args[arg_count++] = "-vf";
+        char vf[BUFFER_SIZE];
+        snprintf(vf, sizeof(vf), "fps=%s,scale=%s:-1,format=gray", FPS, WIDTH);
+        args[arg_count++] = vf;
+        
+        args[arg_count++] = output_pattern;
+        args[arg_count++] = NULL;  // Terminate the arguments list
+        
+        execvp("ffmpeg", args);
         _exit(EXIT_FAILURE);
     }
     else if (pid < 0) {
@@ -413,7 +526,12 @@ void extract_images_grayscale() {
         spinner_destroy(sp);
 
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-            fatal_error("Failed to extract frames");
+            // Check if the error is because the video file doesn't exist
+            if (!dir_contains(".",VIDEO_PATH)) {
+                user_fatal("Video file not found: %s", VIDEO_PATH);
+            } else {
+                fatal_error("Failed to extract frames");
+            }
         }
     }
 }

@@ -6,27 +6,52 @@
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
+#include "colors.h"   // ← pull in ANSI color macros
 
 #define EXIT_INVAL -1
-#define LOG_FILE "err.log"
+#define LOG_FILE   "err.log"
 
 #ifdef SUPPRESS_WARNINGS
-#define warn_error(retval, format, ...) return retval
-#define fatal_error(format, ...) exit(EXIT_FAILURE)
+  #define warn_error(retval, format, ...) return retval
+  #define fatal_error(format, ...)           exit(EXIT_FAILURE)
 #else
-#define fatal_error(format, ...) \
-    do { \
-        log_error_internal(1, __FILE__, __LINE__, __func__, format, ##__VA_ARGS__); \
-        exit(EXIT_FAILURE); \
+  #define fatal_error(format, ...)                                   \
+    do {                                                             \
+      log_error_internal(1, __FILE__, __LINE__, __func__,            \
+                         format, ##__VA_ARGS__);                     \
+      exit(EXIT_FAILURE);                                            \
     } while (0)
 
-#define warn_error(retval, format, ...) \
-    do { \
-        log_error_internal(0, __FILE__, __LINE__, __func__, format, ##__VA_ARGS__); \
-        return retval; \
+  #define warn_error(retval, format, ...)                            \
+    do {                                                             \
+      log_error_internal(0, __FILE__, __LINE__, __func__,            \
+                         format, ##__VA_ARGS__);                     \
+      return retval;                                                 \
     } while (0)
 #endif
 
-void log_error_internal(int is_fatal, const char *file, int line, const char *func, const char *format, ...);
+/*
+ * user_error / user_fatal
+ *   Friendly, colored messages for end‑user errors,
+ *   without dumping internal file/line/errno details.
+ */
+#define user_error(format, ...)                                      \
+  do {                                                               \
+    fprintf(stderr, ANSI_YELLOW "Error: " format ANSI_RESET "\n",    \
+            ##__VA_ARGS__);                                          \
+  } while (0)
 
-#endif
+#define user_fatal(format, ...)                                      \
+  do {                                                               \
+    fprintf(stderr, ANSI_RED    "Fatal: " format ANSI_RESET "\n",    \
+            ##__VA_ARGS__);                                          \
+    exit(EXIT_FAILURE);                                              \
+  } while (0)
+
+/* existing public API */
+void log_error_internal(int is_fatal,
+                        const char *file, int line,
+                        const char *func,
+                        const char *format, ...);
+
+#endif // ERROR_H

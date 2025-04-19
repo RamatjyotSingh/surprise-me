@@ -3,7 +3,7 @@ CFLAGS = -Wall -Werror -Wextra -Wpedantic -D_FORTIFY_SOURCE=3 -g
 LDFLAGS =
 OBJS = sm.o err.o spinner.o
 
-.PHONY: all clean
+.PHONY: all clean debug frames run run_debug kill help
 
 all: sm
 
@@ -22,21 +22,17 @@ spinner.o: spinner.c spinner.h colors.h
 clean:
 	rm -f sm $(OBJS) err.log
 
-# Debug version with warnings suppressed
-debug: CFLAGS += -DSUPPRESS_WARNINGS
+# Debug version with warnings suppressed and GDB symbols
+debug: CFLAGS += -DSUPPRESS_WARNINGS -ggdb -O0
 debug: all
 
-# Create frames directory if it doesn't exist
-frames:
-	mkdir -p frames
 
-run: all frames
+run: all
 	./sm
 
 run_debug: debug frames
-	./sm
+	gdb --args ./sm
 
-.PHONY: kill
 kill:
 	@if pgrep -x "sm" > /dev/null; then \
 		echo "Killing sm process..."; \
@@ -50,13 +46,13 @@ kill:
 	@make clean
 	@echo "Cleanup complete."
 
-.PHONY: help
 help:
 	@echo "Available targets:"
 	@echo "  all        - Build the program (default)"
 	@echo "  clean      - Remove compiled files and logs"
-	@echo "  debug      - Build with warnings suppressed"
+	@echo "  debug      - Build with warnings suppressed + GDB symbols"
 	@echo "  frames     - Create the frames directory"
 	@echo "  run        - Build and run the program"
-	@echo "  run_debug  - Build with debug flags and run"
+	@echo "  run_debug  - Build with debug flags and launch GDB"
+	@echo "  kill       - Kill running sm/ffplay and clean"
 	@echo "  help       - Display this help message"
