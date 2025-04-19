@@ -23,7 +23,7 @@ static void *spinner_thread(void *arg) {
 
     while (s->active) {
         char c = s->symbols[s->idx++ % s->symcount];
-        printf("\b%c", c);
+        printf(ANSI_BLUE "\b%c", c);
         fflush(stdout);
         usleep(100000); // 100 ms
     }
