@@ -59,6 +59,7 @@ char* get_usage_msg(const char *program_name);
 void create_dir(const char *dir_name);
 void empty_directory(const char *dir_name);
 void setup();
+void reset();
 void play();
 void draw_frames();
 void draw_ascii_frame(const char *frame_path);
@@ -166,15 +167,9 @@ int main(int argc, char *argv[])
 
           case 'r':
             opts_given++;
+            user_warning("This will delete all extracted files and reset settings.");
 
-            // Reset the directories
-            empty_directory(AUDIO_DIR);
-            empty_directory(ASCII_DIR);
-            empty_directory(FRAMES_DIR);
-            // Remove the directories themselves
-            set_defaults();
-            
-
+            reset();
             break;
         case 'p':
 
@@ -209,6 +204,53 @@ int main(int argc, char *argv[])
 
     play();
     return EXIT_SUCCESS;
+}
+
+void reset()
+{
+    char response;
+    int valid_response = 0;
+
+    // Loop until we get a valid y/n response
+    while (!valid_response)
+    {
+        user_prompt("Are you sure? (y/n)");
+
+        // Read a character and flush the input buffer
+        response = getchar();
+       
+
+        // Check if response is valid
+        if (response == 'y' || response == 'Y' || response == 'n' || response == 'N')
+        {
+            valid_response = 1;
+        }
+        else
+        {
+            user_error("Please enter 'y' or 'n'");
+        }
+    }
+
+    if (response == 'y' || response == 'Y')
+    {
+        user_info("Resetting all directories...");
+
+        // Reset the directories
+        empty_directory(AUDIO_DIR);
+        empty_directory(ASCII_DIR);
+        empty_directory(FRAMES_DIR);
+
+        // Set defaults
+        set_defaults();
+
+        user_success("Reset completed successfully!");
+        exit(EXIT_SUCCESS);
+    }
+    else
+    {
+        user_response("Operation cancelled.");
+        exit(EXIT_SUCCESS);
+    }
 }
 
 void setup(){

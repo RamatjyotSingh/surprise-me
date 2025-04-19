@@ -31,21 +31,59 @@
 #endif
 
 /*
- * user_error / user_fatal
- *   Friendly, colored messages for end‑user errors,
- *   without dumping internal file/line/errno details.
+ * Enhanced user interface message types with different colors
+ * for different types of messages
  */
+ 
+// Error messages - red
 #define user_error(format, ...)                                      \
   do {                                                               \
-    fprintf(stderr, ANSI_YELLOW "Error: " format ANSI_RESET "\n",    \
+    fprintf(stderr, ANSI_RED "Error: " format ANSI_RESET "\n",       \
             ##__VA_ARGS__);                                          \
   } while (0)
 
+// Fatal errors - bright red (terminates program)
 #define user_fatal(format, ...)                                      \
   do {                                                               \
-    fprintf(stderr, ANSI_RED    "Fatal: " format ANSI_RESET "\n",    \
+    fprintf(stderr, ANSI_RED "Fatal: " format ANSI_RESET "\n",      \
             ##__VA_ARGS__);                                          \
     exit(EXIT_FAILURE);                                              \
+  } while (0)
+
+// Warning messages - yellow
+#define user_warning(format, ...)                                    \
+  do {                                                               \
+    fprintf(stderr, ANSI_YELLOW "Warning: " format ANSI_RESET "\n",  \
+            ##__VA_ARGS__);                                          \
+  } while (0)
+
+// Information messages - blue
+#define user_info(format, ...)                                       \
+  do {                                                               \
+    fprintf(stdout, ANSI_BLUE "Info: " format ANSI_RESET "\n",       \
+            ##__VA_ARGS__);                                          \
+  } while (0)
+
+// Success messages - green
+#define user_success(format, ...)                                    \
+  do {                                                               \
+    fprintf(stdout, ANSI_GREEN "Success: " format ANSI_RESET "\n",   \
+            ##__VA_ARGS__);                                          \
+  } while (0)
+
+// Response messages - cyan (for general user feedback)
+#define user_response(format, ...)                                   \
+  do {                                                               \
+    fprintf(stdout, ANSI_CYAN format ANSI_RESET "\n",                \
+            ##__VA_ARGS__);                                          \
+  } while (0)
+
+// Prompt messages - magenta (for interactive prompts)
+#define user_prompt(format, ...)                                     \
+  do {                                                               \
+    fprintf(stdout, ANSI_MAGENTA "? " format ANSI_RESET " ",         \
+            ##__VA_ARGS__);                                          \
+    fflush(stdout);                                                  \
   } while (0)
 
 /* existing public API */
