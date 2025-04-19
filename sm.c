@@ -29,7 +29,7 @@
 
 #define DEFAULT_FPS  "10"
 #define DEFAULT_WIDTH  "900"    // Doubled from 80
-#define DEFAULT_HEIGHT "60"     // Doubled from 40
+#define DEFAULT_HEIGHT "600"     // Doubled from 40
 #define DEFAULT_START_TIME "00:00:00" // Start time in HH:MM:SS format
 #define DEFAULT_VIDEO_PATH "rr.mp4"
 #define DEFAULT_VIDEO_NAME "rr"
