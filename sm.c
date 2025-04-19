@@ -45,13 +45,13 @@ char* DURATION  = DEFAULT_DURATION;
 char VIDEO_NAME[PATH_MAX] = DEFAULT_VIDEO_NAME;
 
 
-// static volatile sig_atomic_t sigint_received = 0;
+static volatile sig_atomic_t sigint_received = 0;
 
-// // SIGINT handler: just record that it happened
-// static void handle_sigint(int sig) {
-//     (void)sig;
-//     sigint_received = 1;
-// }
+// SIGINT handler: just record that it happened
+static void handle_sigint(int sig) {
+    (void)sig;
+    sigint_received = 1;
+}
 
 void extract_images_grayscale();
 char* get_usage_msg(const char *program_name);
@@ -73,12 +73,12 @@ int video_extracted();
 
 int main(int argc, char *argv[])
 {
-    // // install our SIGINT handler
-    // struct sigaction sa = { 0 };
-    // sa.sa_handler = handle_sigint;
-    // sa.sa_flags   = SA_RESTART;
-    // sigemptyset(&sa.sa_mask);
-    // sigaction(SIGINT, &sa, NULL);
+    // install our SIGINT handler
+    struct sigaction sa = { 0 };
+    sa.sa_handler = handle_sigint;
+    sa.sa_flags   = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
 
     int c, optidx = 0;
     int opts_given = 0;    // ← counter for any options
