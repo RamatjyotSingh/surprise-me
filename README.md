@@ -21,7 +21,7 @@ Surprise Me converts videos to ASCII art and plays them in your terminal with sy
 - `-w, --width N`: Width in characters (default: 900)
 - `-t, --height N`: Height in characters (default: 40)
 - `-s, --start TIME`: Start time in HH:MM:SS format (default: 00:00:00)
-- `-d, --duration SEC` or `-e, --end SEC`: Duration in seconds (default: full video)
+- `-d, --duration SEC`: Duration in seconds (default: full video)
 - `-p, --play NAME`: Play a previously converted video by name
 - `-r, --reset`: Reset current configuration
 - `-h, --help`: Display help message
@@ -54,7 +54,7 @@ This will extract frames, convert them to ASCII art, and extract audio. The vide
 
 ## Known Bugs
 
-- When manipulating start time (-s) and duration (-d/-e), the program may hang or behave unexpectedly
+- When manipulating start time (-s) and duration (-d), the program may hang or behave unexpectedly
 - Some videos may not convert properly depending on their format
 
 ## WARNING

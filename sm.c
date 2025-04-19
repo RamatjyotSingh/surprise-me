@@ -18,7 +18,8 @@
 #include "err.h"
 #include "spinner.h"
 #include <time.h>    
-#include <fnmatch.h>        
+#include <fnmatch.h> 
+#include <ctype.h>       
 
 #define ASSETS_DIR "assets"
 #define AUDIO_DIR "assets/audio"
@@ -28,7 +29,7 @@
 
 #define DEFAULT_FPS  "10"
 #define DEFAULT_WIDTH  "900"    // Doubled from 80
-#define DEFAULT_HEIGHT "40"     // Doubled from 40
+#define DEFAULT_HEIGHT "60"     // Doubled from 40
 #define DEFAULT_START_TIME "00:00:00" // Start time in HH:MM:SS format
 #define DEFAULT_VIDEO_PATH "rr.mp4"
 #define DEFAULT_VIDEO_NAME "rr"
@@ -68,9 +69,19 @@ int directory_exists(const char *path);
 int is_directory_empty(const char *dir_path);
 int dir_contains(const char *dir_path, const char *file_name);
 int video_extracted();
+int is_valid_integer(const char* str);
+int is_valid_timestamp(const char* str);
 
+void set_defaults(){
+    FPS = DEFAULT_FPS;
+    WIDTH = DEFAULT_WIDTH;
+    HEIGHT = DEFAULT_HEIGHT;
+    START_TIME = DEFAULT_START_TIME;
+    DURATION  = DEFAULT_DURATION;
+    VIDEO_PATH[0] = '\0';
+    VIDEO_NAME[0] = '\0';
 
-
+}
 int main(int argc, char *argv[])
 {
     // install our SIGINT handler
@@ -90,7 +101,6 @@ int main(int argc, char *argv[])
         { "width",  required_argument, 0, 'w' },
         { "height", required_argument, 0, 't' },
         { "start",  required_argument, 0, 's' },
-        { "end",    required_argument, 0, 'e' },    
         { "duration", required_argument, 0, 'd' },  // Add duration option
         { "play",   required_argument, 0, 'p' },
         { "reset",  no_argument,       0, 'r' },
@@ -99,36 +109,71 @@ int main(int argc, char *argv[])
     };
 
     /* only i,f,w,t,s,e,d,p take arguments; r and h are flags */
-    while ((c = getopt_long(argc, argv, "i:f:w:t:s:e:d:p:rh", longopts, &optidx)) != -1) {
+    while ((c = getopt_long(argc, argv, "i:f:w:t:s:d:p:rh", longopts, &optidx)) != -1) {
         switch (c) {
           case 'i':
             opts_given++;
             new_file = 1;
             strncpy(VIDEO_PATH, optarg, sizeof(VIDEO_PATH)-1);
             break;
-          case 'f':
+          case 'f':  // fps
             opts_given++;
+            if (!is_valid_integer(optarg)) {
+                user_fatal("Invalid fps value. Must be a positive integer.");
+            }
+            int fps_value = atoi(optarg);
+            if (fps_value <= 0 || fps_value > 60) {
+                user_fatal("FPS must be between 1 and 60.");
+            }
             FPS = optarg;
             break;
-          case 'w':
+
+          case 'w':  // width
             opts_given++;
+            if (!is_valid_integer(optarg)) {
+                user_fatal("Invalid width value. Must be a positive integer.");
+            }
+            int width_value = atoi(optarg);
+            if (width_value <= 0) {
+                user_fatal("Width must be positive.");
+            }
             WIDTH = optarg;
             break;
-          case 't':
+
+          case 't':  // height
             opts_given++;
+            if (!is_valid_integer(optarg)) {
+                user_fatal("Invalid height value. Must be a positive integer.");
+            }
             HEIGHT = optarg;
             break;
-          case 's':
+
+          case 's':  // start time
             opts_given++;
+            if (!is_valid_timestamp(optarg)) {
+                user_fatal("Invalid start time. Format must be HH:MM:SS");
+            }
             START_TIME = optarg;
             break;
-          case 'e':
-          case 'd':  // Both -e and -d set the duration
+
+          case 'd':  // duration
             opts_given++;
+            if (!is_valid_integer(optarg)) {
+                user_fatal("Invalid duration. Must be a positive integer in seconds.");
+            }
             DURATION = optarg;
             break;
+
           case 'r':
             opts_given++;
+
+            // Reset the directories
+            empty_directory(AUDIO_DIR);
+            empty_directory(ASCII_DIR);
+            empty_directory(FRAMES_DIR);
+            // Remove the directories themselves
+            set_defaults();
+            
 
             break;
         case 'p':
@@ -405,7 +450,25 @@ char* get_usage_msg(const char *program_name)
     }
 
     // Format the string with program_name
-    snprintf(usage, BUFFER_SIZE, "Usage: %s <video_path>\n", program_name);
+    snprintf(usage, BUFFER_SIZE,
+        "Usage: %s [OPTIONS]\n\n"
+        "Options:\n"
+        "  -i, --input FILE       Path to a video file to process\n"
+        "  -f, --fps N            Frames per second (default: %s)\n"
+        "  -w, --width N          Width in characters (default: %s)\n"
+        "  -t, --height N         Height in characters (default: %s)\n"
+        "  -s, --start TIME       Start time in HH:MM:SS format (default: %s)\n"
+        "  -d, --duration SEC     Duration in seconds (default: full video)\n"
+        "  -p, --play NAME        Play a previously converted video by name\n"
+        "  -r, --reset            Reset all settings and delete all extracted files\n"
+        "                         WARNING: This will permanently delete all videos!\n"
+        "  -h, --help             Display this help message\n\n"
+        "Examples:\n"
+        "  %s -p rr               Play the default \"rickroll\" video\n"
+        "  %s -i video.mp4        Convert and play a new video\n"
+        "  %s -i video.mp4 -s 00:01:30 -d 10  Start at 1:30, play for 10 seconds\n",
+        program_name, DEFAULT_FPS, DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_START_TIME,
+        program_name, program_name, program_name);
 
     return usage;
 }
@@ -635,4 +698,41 @@ int directory_exists(const char *path) {
     }
 
     return 0;  // Directory does not exist or is not accessible
+}
+
+// Validate that a string contains only digits
+int is_valid_integer(const char* str) {
+    if (str == NULL || *str == '\0') return 0;
+    
+    // Check each character is a digit
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] < '0' || str[i] > '9') return 0;
+    }
+    return 1;
+}
+
+// Validate that a string is in HH:MM:SS format
+int is_valid_timestamp(const char* str) {
+    if (str == NULL) return 0;
+    
+    // Check length and format (HH:MM:SS)
+    if (strlen(str) != 8) return 0;
+    if (str[2] != ':' || str[5] != ':') return 0;
+    
+    // Check hours (00-23)
+    if (!isdigit(str[0]) || !isdigit(str[1])) return 0;
+    int hours = (str[0] - '0') * 10 + (str[1] - '0');
+    if (hours > 23) return 0;
+    
+    // Check minutes (00-59)
+    if (!isdigit(str[3]) || !isdigit(str[4])) return 0;
+    int minutes = (str[3] - '0') * 10 + (str[4] - '0');
+    if (minutes > 59) return 0;
+    
+    // Check seconds (00-59)
+    if (!isdigit(str[6]) || !isdigit(str[7])) return 0;
+    int seconds = (str[6] - '0') * 10 + (str[7] - '0');
+    if (seconds > 59) return 0;
+    
+    return 1;
 }
