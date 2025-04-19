@@ -1,17 +1,17 @@
 CC = gcc
 CFLAGS = -Wall -Werror -Wextra -Wpedantic -D_FORTIFY_SOURCE=3 -g
 LDFLAGS =
-OBJS = rr.o err.o spinner.o
+OBJS = sm.o err.o spinner.o
 
 .PHONY: all clean
 
-all: rr
+all: sm
 
-rr: $(OBJS)
+sm: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-rr.o: rr.c err.h spinner.h
-	$(CC) $(CFLAGS) -c rr.c
+sm.o: sm.c err.h spinner.h
+	$(CC) $(CFLAGS) -c sm.c
 
 err.o: err.c err.h
 	$(CC) $(CFLAGS) -c err.c
@@ -20,7 +20,7 @@ spinner.o: spinner.c spinner.h colors.h
 	$(CC) $(CFLAGS) -c spinner.c
 
 clean:
-	rm -f rr $(OBJS) err.log
+	rm -f sm $(OBJS) err.log
 
 # Debug version with warnings suppressed
 debug: CFLAGS += -DSUPPRESS_WARNINGS
@@ -31,10 +31,23 @@ frames:
 	mkdir -p frames
 
 run: all frames
-	./rr
+	./sm
 
 run_debug: debug frames
-	./rr
+	./sm
+
+.PHONY: kill
+kill:
+	@if pgrep -x "sm" > /dev/null; then \
+		echo "Killing sm process..."; \
+		pkill -x "sm"; \
+	else \
+		echo "No sm process found running."; \
+	fi
+	@echo "sm process killed."
+	@echo "Cleaning up..."
+	@make clean
+	@echo "Cleanup complete."
 
 .PHONY: help
 help:

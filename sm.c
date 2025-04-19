@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE   600
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -12,8 +14,10 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <signal.h>
 #include "err.h"
 #include "spinner.h"
+#include <time.h>             // ← add this
 
 #define ASSETS_DIR "assets"
 #define AUDIO_DIR "assets/audio"
@@ -33,6 +37,14 @@ char* FPS = DEFAULT_FPS;
 char* WIDTH = DEFAULT_WIDTH;
 char* HEIGHT = DEFAULT_HEIGHT;
 char* START_FRAME = DEFAULT_START_FRAME;
+
+static volatile sig_atomic_t sigint_received = 0;
+
+// SIGINT handler: just record that it happened
+static void handle_sigint(int sig) {
+    (void)sig;
+    sigint_received = 1;
+}
 
 void extract_images_grayscale();
 char* get_usage_msg(const char *program_name);
@@ -62,6 +74,13 @@ static void print_usage(const char *prog) {
 
 int main(int argc, char *argv[])
 {
+    // install our SIGINT handler
+    struct sigaction sa = { 0 };
+    sa.sa_handler = handle_sigint;
+    sa.sa_flags   = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+
     int c, optidx = 0;
     int opts_given = 0;    // ← counter for any options
 
@@ -200,7 +219,11 @@ void draw_frames() {
 
         // Add a delay between frames
         int delay_us = 1000000 / atoi(FPS);  // Convert FPS to microseconds
-        usleep(delay_us);
+        struct timespec ts = {
+            .tv_sec  = delay_us / 1000000,
+            .tv_nsec = (delay_us % 1000000) * 1000
+        };
+        nanosleep(&ts, NULL);
     }
 
     pclose(pipe);
