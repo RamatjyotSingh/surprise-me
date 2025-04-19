@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Werror -Wextra -Wpedantic -D_FORTIFY_SOURCE=3 -g
 LDFLAGS =
-OBJS = rr.o err.o
+OBJS = rr.o err.o spinner.o
 
 .PHONY: all clean
 
@@ -10,11 +10,14 @@ all: rr
 rr: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-rr.o: rr.c err.h
-	$(CC) $(CFLAGS) -c $<
+rr.o: rr.c err.h spinner.h
+	$(CC) $(CFLAGS) -c rr.c
 
 err.o: err.c err.h
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -c err.c
+
+spinner.o: spinner.c spinner.h colors.h
+	$(CC) $(CFLAGS) -c spinner.c
 
 clean:
 	rm -f rr $(OBJS) err.log

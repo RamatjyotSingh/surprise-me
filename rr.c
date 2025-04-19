@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include "err.h"
+#include "spinner.h"
 
 #define ASSETS_DIR "assets"
 #define AUDIO_DIR "assets/audio"
@@ -309,208 +310,114 @@ char* get_usage_msg(const char *program_name)
 }
 
 void extract_audio() {
+    pid_t pid = fork();
+    if (pid < 0)  fatal_error("fork() failed: %s", strerror(errno));
 
-   if(VIDEO_PATH[0] == '\0'){
-      fatal_error("Invalid path provided for audio extraction, path is NULL");
-   }
-
-   pid_t pid = fork();
-   if (pid == -1) {
-       fatal_error("Fork failed: %s", strerror(errno));
-   }
-   if (pid == 0) {
-       // Child process
-       execlp("ffmpeg", "ffmpeg",
-              "-loglevel", "quiet",
-              "-i", VIDEO_PATH, // Input video file
-              "-vn",                   // No video
-              "-acodec", "libmp3lame", // MP3 codec
-              "-q:a", "2",             // Good quality
-              AUDIO_DIR"/audio.mp3",
-              NULL);
-
-       fatal_error("Failed to execute ffmpeg for audio extraction");
-   }
-   else {
-       // Parent process
-       printf("RENDERING AUDIO...\n");
-       printf("\033[2J\033[1;1H");
-       int status;
-       waitpid(pid, &status, 0);
-
-       if (WIFEXITED(status)) {
-
-        printf("Rendering audio completed with exit code: %d\n", WEXITSTATUS(status));
-        printf("\033[2J\033[1;1H");
-
-           
-       } else if (WIFSIGNALED(status)) {
-           fatal_error("Audio extraction terminated by signal: %d\n", WTERMSIG(status));
-       }
-   }
-
-
-}
-
-
-
-
-void extract_images_grayscale() {
-   if(!directory_exists(FRAMES_DIR)){
-      create_dir(FRAMES_DIR);
-   }
-   else{
-      empty_directory(FRAMES_DIR);
-   }
-
-   if(VIDEO_PATH[0] == '\0') {
-      fatal_error("Invalid path provided for video extraction, path is NULL");
-   }
-
-   pid_t pid = fork();
-
-   if (pid == -1) {
-       fatal_error("Fork failed: %s", strerror(errno));
-   }
-
-   if (pid == 0) {
-       // Child process
-       char output_pattern[512];
-       snprintf(output_pattern, sizeof(output_pattern), "%s/gray_%%04d.png", FRAMES_DIR);
-
-       // Use larger dimensions for source images
-       // But keep aspect ratio by using -1 for height
-       char filter_str[256];
-
-       // Option 1: Fixed width, auto height (maintains aspect ratio)
-       snprintf(filter_str, sizeof(filter_str), "fps=%s,scale=%s:-1,format=gray",
-                FPS, WIDTH);
-
-       // Option 2 (alternative): Fixed width and height
-       // snprintf(filter_str, sizeof(filter_str), "fps=%s,scale=%s:%s,format=gray",
-       //          FPS, WIDTH, HEIGHT);
-
-       execlp("ffmpeg", "ffmpeg",
-              "-loglevel", "quiet",
-              "-i", VIDEO_PATH,
-              "-vf", filter_str,
-              "-start_number", START_FRAME,
-              output_pattern,
-              NULL);
-
-       perror("Failed to execute ffmpeg");
-       exit(EXIT_FAILURE);
+    if (pid == 0) {
+        // child: do work
+        execlp("ffmpeg", "ffmpeg",
+               "-loglevel", "quiet",
+               "-i", VIDEO_PATH, // Input video file
+               "-vn",                   // No video
+               "-acodec", "libmp3lame", // MP3 codec
+               "-q:a", "2",             // Good quality
+               AUDIO_DIR"/audio.mp3",
+               NULL);
+        _exit(EXIT_FAILURE);
     } else {
-        // Parent process
-        printf("RENDERING FRAMES...\n");    
-        printf("\033[2J\033[1;1H");
-
-        int status;
-        waitpid(pid, &status, 0);
-
-        if (WIFEXITED(status)) {
-            printf("\033[2J\033[1;1H");
-            printf("Rendering frames completed with exit code: %d\n", WEXITSTATUS(status));
-
-        } else if (WIFSIGNALED(status)) {
-            fatal_error("Grayscale conversion terminated by signal: %d\n", WTERMSIG(status));
-        }
+        // parent: spinner only
+        spinner_t *sp = spinner_create("Extracting audio");
+        spinner_start(sp);
+        waitpid(pid, NULL, 0);
+        spinner_stop(sp, true);
+        spinner_destroy(sp);
     }
 }
 
-void batch_convert_to_ascii(){
+void extract_images_grayscale() {
+    pid_t pid = fork();
+    if (pid < 0)  fatal_error("fork() failed: %s", strerror(errno));
 
-   if(!directory_exists(ASCII_DIR)){
+    if (pid == 0) {
+        // child: do work
+        char output_pattern[512];
+        snprintf(output_pattern, sizeof(output_pattern), "%s/gray_%%04d.png", FRAMES_DIR);
 
-      create_dir(ASCII_DIR);  // Create directory if it doesn't exist
-   } else {
-      empty_directory(ASCII_DIR);  // Empty it if it exists
-   }
+        char filter_str[256];
+        snprintf(filter_str, sizeof(filter_str), "fps=%s,scale=%s:-1,format=gray",
+                 FPS, WIDTH);
 
-   if(!directory_exists(FRAMES_DIR)){
-      fatal_error("Temporary frames directory does not exist");
-   }
-
-   DIR *dir = opendir(FRAMES_DIR);
-   if (dir == NULL) {
-       fatal_error("Failed to open directory: %s", FRAMES_DIR);
-   }
-
-   printf("Converting frames to ASCII art...\n");
-    printf("\033[2J\033[1;1H");
-
-   struct dirent *entry;
-   int frame_count = 0;
-
-   while ((entry = readdir(dir)) != NULL) {
-       // Skip "." and ".." directories and non-PNG files
-       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-           continue;
-       }
-
-       // Check if it's a PNG file
-       char *ext = strrchr(entry->d_name, '.');
-       if (ext == NULL || strncmp(ext, ".png", 4) != 0) {
-           fatal_error("Invalid file format: %s. Expected .png", entry->d_name);
-       }
-
-       if(strlen(ext) != 4){
-          fatal_error("Invalid file format: %s. Expected .png", entry->d_name);
-       }
-
-       char input_path[PATH_MAX];
-       char output_path[PATH_MAX + sizeof(ASCII_DIR) + sizeof(".txt")];
-
-       // Strip .png extension for output filename
-       char base_name[PATH_MAX];
-       strncpy(base_name, entry->d_name, ext - entry->d_name);
-       base_name[ext - entry->d_name] = '\0';
-
-       snprintf(input_path, sizeof(input_path), "%s/%s", FRAMES_DIR, entry->d_name);
-       snprintf(output_path, sizeof(output_path), "%s/%s.txt", ASCII_DIR, base_name);
-
-       pid_t pid = fork();
-
-       if (pid == -1) {
-           closedir(dir);
-           fatal_error("Fork failed: %s", strerror(errno));
-       }
-
-       if (pid == 0) {
-        char output_arg[sizeof(output_path) + sizeof("--output=")];
-        snprintf(output_arg, sizeof(output_arg), "--output=%s", output_path);
-
-        execlp("jp2a", "jp2a",
-
-               output_arg,
-               input_path,
+        execlp("ffmpeg", "ffmpeg",
+               "-loglevel", "quiet",
+               "-i", VIDEO_PATH,
+               "-vf", filter_str,
+               "-start_number", START_FRAME,
+               output_pattern,
                NULL);
+        _exit(EXIT_FAILURE);
+    } else {
+        spinner_t *sp = spinner_create("Converting to grayscale");
+        spinner_start(sp);
+        waitpid(pid, NULL, 0);
+        spinner_stop(sp, true);
+        spinner_destroy(sp);
+    }
+}
 
+void batch_convert_to_ascii() {
+    pid_t pid = fork();
+    if (pid < 0)  fatal_error("fork() failed: %s", strerror(errno));
 
-           // If jp2a fails, try an alternative approach
-           fatal_error("Failed to execute jp2a for ASCII conversion");
-       } else {
-           // Parent process
-           int status;
-           waitpid(pid, &status, 0);
+    if (pid == 0) {
+        // child: do work
+        DIR *dir = opendir(FRAMES_DIR);
+        if (dir == NULL) {
+            fatal_error("Failed to open directory: %s", FRAMES_DIR);
+        }
 
-           if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-               frame_count++;
-               if (frame_count % 10 == 0) {
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                continue;
+            }
 
-                   printf("RENDERING ASCII ART...\n");
-                   printf("\033[2J\033[1;1H");
-               }    
-           } else {
-                fatal_error("ASCII conversion failed for frame: %s", entry->d_name);
-           }
-       }
-   }
+            char *ext = strrchr(entry->d_name, '.');
+            if (ext == NULL || strncmp(ext, ".png", 4) != 0) {
+                continue;
+            }
 
-   closedir(dir);
-    printf("RENDER COMPLETED\n");
-    printf("\033[2J\033[1;1H");
+            char input_path[PATH_MAX];
+            char output_path[PATH_MAX + sizeof(ASCII_DIR) + sizeof(".txt")];
 
+            char base_name[PATH_MAX];
+            strncpy(base_name, entry->d_name, ext - entry->d_name);
+            base_name[ext - entry->d_name] = '\0';
+
+            snprintf(input_path, sizeof(input_path), "%s/%s", FRAMES_DIR, entry->d_name);
+            snprintf(output_path, sizeof(output_path), "%s/%s.txt", ASCII_DIR, base_name);
+
+            pid_t child_pid = fork();
+            if (child_pid == 0) {
+                char output_arg[sizeof(output_path) + sizeof("--output=")];
+                snprintf(output_arg, sizeof(output_arg), "--output=%s", output_path);
+
+                execlp("jp2a", "jp2a", output_arg, input_path, NULL);
+                _exit(EXIT_FAILURE);
+            } else {
+                int status;
+                waitpid(child_pid, &status, 0);
+            }
+        }
+
+        closedir(dir);
+        _exit(EXIT_SUCCESS);
+    } else {
+        spinner_t *sp = spinner_create("Rendering ASCII art");
+        spinner_start(sp);
+        waitpid(pid, NULL, 0);
+        spinner_stop(sp, true);
+        spinner_destroy(sp);
+    }
 }
 
 /**
