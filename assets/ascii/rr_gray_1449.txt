@@ -1,24 +1,36 @@
-            '',,,,,,;;;;;;;;,,;;,,,,;,,,,,,''''',,,,,',,,,,,,,,,,,'''''''            
-            ',,,;;;,;;;;;;;;,,,,,,,,,;;;;;,,,,,,,,,,,,,,,,,,;,,,;;,,,,'''            
-            ,,,,,;;;;;;;;;;;;;;;;;,;;;;;;;;::;;;;;;:;;;;;;;;::;;;;;;;;;;;            
-            ,,,;;;;;;;;;;;;,,;,;;;;;;;;;;:::::::::::::::::::::cccccllloll.           
-            ,,;;;;;;;;;;;;;,,;;;;;;;;;:;;:;;;:::::::::::cc::ccllllooooddd.           
-            ,,,,,,,,,;;;;;;;,;;;;;;;;;;:::::;:::::::cccccccllcllllooooddx.           
-            ,,,,,,,,;;,'''',,;;;;;;;;;;;;;;:;::::::ccccccclllcllllllllooo.           
-            ,,'',;:;..........',;;;;;;;;;;;:::::cc:::,,,',;ccllllloolllll.           
-            ,,';c:..........',;'';;;:::::::::::ccc;. .......':lllloooolll.           
-            ,';c;..........:ccll:,;:;::::::::::::;.     .;'..':llooooolll            
-            ',cc:;;;,,'''';l:cclooc;;;;;;;;;;;;;;. ..    .c,..'ccllooollc            
-            ',clooooollcc::ccllcldc;:;;;;;;;;;;;;.........c:'''cclllooooc            
-            ',cldddddddooolllcccld;.:dc:cc:;;;;,,,''''',,,c:''':cclllllol.           
-            ;;ccodooooolllllol;;'.  .dxoodxdoc;;,,,,,,,,,,l:'',:ccllloooo.           
-            ',:ccllccccccccclo;      odlllllloc:;;;;;;;;;:o,'',:clllooodd.           
-            .':l;:::::::::coddc.     llc;c;;lllool::::::::o''',:llooodddd.           
-            ..;l;;;:::::::odlol;c.   :cl:::,:lclllooccc:::o'.'':ccclooodl.           
-            ..;c:ccccccccldoclccl.   .:cl:;:;ccolllllcl:'''....:cc:cllc::            
-            ,':l:cccc::::colcccl:      ,cc:::lcclolllcllc:;,''.'''..'''''            
-            ,,:c'.......'loolccl'       'ccc:l;...,cllc:c::cc............            
-            ,,,''..'''''cdddolll'        .clooo;.....;cllc:::,'..........            
-            ............odxdolooc.   .    .cdxdo........';c,,'.;c........            
-               .........;ooxOxdld.     .    :xxdc..........','..;,''''''.            
-               .........,ldOOkxol.. .  .. . .dxkk,...............''''''',            
+                  ''',,,,,,,,,,;;;,;;;;;;;;;;;;;,,,,,,;;,,,,,,,,,''''',,,,,,,,,,'',,,,,,,,,,,,,,,,,,''''''''''                  
+                  '',,,,,;;;,,;;,,,;;;;;;,,,,,,,,,,,,,,,,,,,,,,,,,',,'''',,,,,,,,,,,,,,,,,,,,,,,,;;,,,,,,'''''                  
+                  ',,,;,;;;;;;;;;;;;;;;;;;;;;;;,,,,,,,;;;;;;;;;;;;;;;;,,,,,,,;;;,,,,;;;,;;;;;;,,,;;;;,,,,,''',                  
+                  ',,',,,,;;;;;;;;:;;;;;:;;;;;;;;;;,,;;;;;;;;;;;::::;;;;;;;;;::;;;;;;;;;;;:::;;;;;;;;;;;;:;;;;                  
+                  ',,,,,;;;;;;;;;;;;;;,,,;,,;;;;;;;;;;;;;;;;;;:::::::::::::::::::::::::::::::::::::::ccccllllc.                 
+                  ,,,,;;;;;;;;;;;;;;;;;;;,,,,,,;;;;;;;;;;;;;;;:;;;;;::::::::::cc::c::::::::::ccccccllooooooooo.                 
+                  ,,,,;;;;;;;;;;;;;;;;;;,,,,;;;;;;:;;;;;;::;;::;;;;;:::::::::::::::c:ccc:::ccllllllloooooooodd.                 
+                  ,,,,,,,,,,;;;;;;;;;;;;;;,,,;;;;;;;;;;;;;;;:::::;;:::::::::::ccc::::::::clcclcloooooooddddxxx.                 
+                  ,,,,,,,,,,,,,,,,;;;;;;;;;;;;;;;;;;;;;;;;;;::::::::::::::::::ccccccccccclllcllclooooloooodddx.                 
+                  ,,,,,,,,,,,,,,,,,,'''',,;;;;;;;;;;;;;;;::::;;;:::::::::::::ccccccccccclllccclllllolllllloooo.                 
+                  ,,,''''',,:::;'...........',,;;:;;;;;;;;;;;;;;;;:::::::::::::::cccccccllllllllllllllllllllll.                 
+                  ,,,''',;:c:'................,,;;;;::;;;;;;::;;;:::::::ccccc::,'......',:cclcllllloooolllolll.                 
+                  ,,,'';cl:'..............'',,,'',;;;;:::;::::::::::::ccccc:;..............,ccllllloooollloolo.                 
+                  ,,,';cl;...............',;:cc;'.,;::;;::::::::::::::cccc:,.      .';'.....':lllooooooooollll.                 
+                  ',';cl:...............;lolllloo:;;;:;;;:::::::::::::::::;.         .;:'....'cllllooooooolllc                  
+                  ''':lc;;;,,,,''''....'lol:lc:loooc::;;;;;;;::::;;;;;;;;;.  ..       .cc'...';cccllooooollll;                  
+                  ,',clcllllccc:::;;;;,,:c;;lllclddo;;;;;;;;;;;;;;;;;;;;;;.............;l:..'',ccclllloooooooc                  
+                  '',cllddddddooollllccc:cllcccclodo;;;:;;;;;;;;;;;;;;;;;;..........''';lc'''',cccllllooooooo;                  
+                  '',:llddddddddddoooollllllcc:clodd,';ooc;;::;;;;;;,,,,,,'''''''',,,,,;ll'''',:cccclllllloooc.                 
+                  ,,;cccdddddddddooooooooolllcc::ll'. .:xxccodxxolc;;;;;;,,',,,,,,,,,,,:lc'''',:cccclllllloooo.                 
+                  ;;;clcooooooooollllllllloll:,;,..    :dxxoooddddddl;;;,,,,,,,,,,,,,,,cl:''',,:cclllllloooooo.                 
+                  ',,:ccclllllllcclcllcccclllo.        .oddollodoolooc;;;;;;,;;,,,,,,,;ll,''',,:cclllloooooddd.                 
+                  ''';cl;cccccccccccccccccoddl.        .oooc:cc::cllcloolc:;;;;;;;;;;;;ol'''',,:cllloooodddddd.                 
+                  ..';cl,:::::::;:::::::lddddo:.       .locl:;c;;;ccllooddoc:::::::::::ol'''',,:cllooooddddddd.                 
+                  ...,cl,;;;::;;;;:::::cddolooc;:;.    .ccclc;:c;,;clllllllddlccccccc::ol...''':cccllooooooddl.                 
+                  ...;cc;::::::ccccccccodolloll:ll.     :clllc,::;,:lccollllodol:::::;;ll'...'':ccc:cloooooool.                 
+                  .'.,cc;ccccccccccccclodolclclccc.     .;cccl:;::;:cclolllolllllll;''.........:ccc:ccllllc::;                  
+                  ,,',cl;ccccccccccccccooolclclll'        ':clc:;:cccccoooolllllccdxc;,'''''''',;,,'''''''.'..                  
+                  ,,,:cl:;;;;;;;;;;;;;coolcclcllc.         .:ccc:;:coc;;;:loollllc::cccc:;'............'''''''                  
+                  ,,,;cc,............;looolclccl:            ;cccc::ll......;lollc::::c::coc..................                  
+                  ,,,,;'........'''',looodollccl:             ,ccclcloc'......':lllccccc:coo,.................                  
+                  ,,,','''''''''''''cddddddccoclc          ..  'lloxoddc.........';llllc:,'',;;,'.............                  
+                  ..........  ......odddddollxloo,      .       .loxkddd.............,;c:'','..;l:............                  
+                       .............,oxxddxkoxlooo.              .ldkxddl...............;,,,...';o:'..........                  
+                       .............'cllokOOxxoodl..      ...     .lxxxxxc.................',....'''''''''''''                  
+                      ..............'cldxO0Okkodx'... ..  .... .   .dxkkkx'.......................'''''''',',,                  
