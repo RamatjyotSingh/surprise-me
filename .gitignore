@@ -4,5 +4,6 @@
 *.out
 *.exe
 **.mp4
-assets/frames/
-videos/
+
+assets/**
+assets/
