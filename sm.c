@@ -1,6 +1,6 @@
 /*******************************************************************************
  * ASCII Video Player
- * 
+ *
  * This program converts video files to ASCII art and plays them in the terminal
  * with synchronized audio.
  ******************************************************************************/
@@ -10,32 +10,32 @@
 #define _XOPEN_SOURCE 600
 
 /* Standard library includes */
-#include <stdio.h>      /* Standard I/O functions */
-#include <stdlib.h>     /* Standard library functions like malloc, free */
-#include <stdint.h>     /* Integer types with specified widths */
-#include <unistd.h>     /* POSIX operating system API */
-#include <sys/types.h>  /* Basic system data types */
-#include <sys/wait.h>   /* Process control and waiting */
-#include <string.h>     /* String handling functions */
-#include <sys/stat.h>   /* File status and information */
-#include <errno.h>      /* System error numbers */
-#include <ftw.h>        /* File tree walk */
+#include <stdio.h>        /* Standard I/O functions */
+#include <stdlib.h>       /* Standard library functions like malloc, free */
+#include <stdint.h>       /* Integer types with specified widths */
+#include <unistd.h>       /* POSIX operating system API */
+#include <sys/types.h>    /* Basic system data types */
+#include <sys/wait.h>     /* Process control and waiting */
+#include <string.h>       /* String handling functions */
+#include <sys/stat.h>     /* File status and information */
+#include <errno.h>        /* System error numbers */
+#include <ftw.h>          /* File tree walk */
 #include <linux/limits.h> /* System limits like PATH_MAX */
-#include <dirent.h>     /* Directory entry functions */
-#include <fcntl.h>      /* File control options */
-#include <getopt.h>     /* Command-line option parsing */
-#include <signal.h>     /* Signal handling */
-#include "err.h"        /* Custom error handling */
-#include "spinner.h"    /* Custom loading spinner */
-#include <time.h>       /* Time and date functions */
-#include <fnmatch.h>    /* Filename matching */
-#include <ctype.h>      /* Character type functions */
+#include <dirent.h>       /* Directory entry functions */
+#include <fcntl.h>        /* File control options */
+#include <getopt.h>       /* Command-line option parsing */
+#include <signal.h>       /* Signal handling */
+#include "err.h"          /* Custom error handling */
+#include "spinner.h"      /* Custom loading spinner */
+#include <time.h>         /* Time and date functions */
+#include <fnmatch.h>      /* Filename matching */
+#include <ctype.h>        /* Character type functions */
 
 /* Directory structure for assets */
-#define ASSETS_DIR "assets"           /* Main assets directory */
-#define AUDIO_DIR "assets/audio"      /* Directory for extracted audio */
-#define ASCII_DIR "assets/ascii"      /* Directory for ASCII art frames */
-#define FRAMES_DIR "assets/frames"    /* Directory for extracted video frames */
+#define ASSETS_DIR "assets"        /* Main assets directory */
+#define AUDIO_DIR "assets/audio"   /* Directory for extracted audio */
+#define ASCII_DIR "assets/ascii"   /* Directory for ASCII art frames */
+#define FRAMES_DIR "assets/frames" /* Directory for extracted video frames */
 
 /* Default configuration values */
 #define DEFAULT_FPS "10"              /* Frames per second for playback */
@@ -46,15 +46,15 @@
 #define DEFAULT_VIDEO_NAME "rr"       /* Default video name (without extension) */
 #define DEFAULT_DURATION "0"          /* Duration in seconds (0 means full video) */
 
-#define BUFFER_SIZE 1024              /* Standard buffer size for I/O operations */
+#define BUFFER_SIZE 1024 /* Standard buffer size for I/O operations */
 
 /* Global variables for configuration */
-char VIDEO_PATH[PATH_MAX] = DEFAULT_VIDEO_PATH;  /* Path to the input video file */
-char *FPS = DEFAULT_FPS;              /* Frames per second for video playback */
-char *WIDTH = DEFAULT_WIDTH;          /* Width of ASCII output */
-char *HEIGHT = DEFAULT_HEIGHT;        /* Height of ASCII output */
-char *START_TIME = DEFAULT_START_TIME; /* Start time for video extraction */
-char *DURATION = DEFAULT_DURATION;    /* Duration to extract (0 = full video) */
+char VIDEO_PATH[PATH_MAX] = DEFAULT_VIDEO_PATH; /* Path to the input video file */
+char *FPS = DEFAULT_FPS;                        /* Frames per second for video playback */
+char *WIDTH = DEFAULT_WIDTH;                    /* Width of ASCII output */
+char *HEIGHT = DEFAULT_HEIGHT;                  /* Height of ASCII output */
+char *START_TIME = DEFAULT_START_TIME;          /* Start time for video extraction */
+char *DURATION = DEFAULT_DURATION;              /* Duration to extract (0 = full video) */
 char VIDEO_NAME[PATH_MAX] = DEFAULT_VIDEO_NAME; /* Name of the video (without extension) */
 
 /* Flag for signal handling */
@@ -63,7 +63,7 @@ static volatile sig_atomic_t sigint_received = 0;
 /**
  * SIGINT signal handler
  * Sets a flag when Ctrl+C is pressed but doesn't terminate the program immediately
- * 
+ *
  * @param sig Signal number (unused)
  */
 static void handle_sigint(int sig)
@@ -73,24 +73,24 @@ static void handle_sigint(int sig)
 }
 
 /* Forward declarations of functions */
-void extract_images_grayscale();  /* Extract frames from video as grayscale images */
-char *get_usage_msg(const char *program_name); /* Generate usage message */
-void create_dir(const char *dir_name); /* Create directory if it doesn't exist */
-void empty_directory(const char *dir_name); /* Remove all files in directory */
-void setup(); /* Setup directories and extract video/audio */
-void reset(); /* Reset directories and settings */
-void play(); /* Play the ASCII video with audio */
-void draw_frames(); /* Display ASCII frames in sequence */
-void draw_ascii_frame(const char *frame_path); /* Display a single ASCII frame */
-void batch_convert_to_ascii(); /* Convert grayscale images to ASCII art */
-void extract_audio(); /* Extract audio from video */
-void play_audio(); /* Play extracted audio */
-int directory_exists(const char *path); /* Check if directory exists */
-int is_directory_empty(const char *dir_path); /* Check if directory is empty */
+void extract_images_grayscale();                               /* Extract frames from video as grayscale images */
+char *get_usage_msg(const char *program_name);                 /* Generate usage message */
+void create_dir(const char *dir_name);                         /* Create directory if it doesn't exist */
+void empty_directory(const char *dir_name);                    /* Remove all files in directory */
+void setup();                                                  /* Setup directories and extract video/audio */
+void reset();                                                  /* Reset directories and settings */
+void play();                                                   /* Play the ASCII video with audio */
+void draw_frames();                                            /* Display ASCII frames in sequence */
+void draw_ascii_frame(const char *frame_path);                 /* Display a single ASCII frame */
+void batch_convert_to_ascii();                                 /* Convert grayscale images to ASCII art */
+void extract_audio();                                          /* Extract audio from video */
+void play_audio();                                             /* Play extracted audio */
+int directory_exists(const char *path);                        /* Check if directory exists */
+int is_directory_empty(const char *dir_path);                  /* Check if directory is empty */
 int dir_contains(const char *dir_path, const char *file_name); /* Check if directory contains file matching pattern */
-int video_extracted(); /* Check if video has been extracted */
-int is_valid_integer(const char *str); /* Validate string is a positive integer */
-int is_valid_timestamp(const char *str); /* Validate string is in HH:MM:SS format */
+int video_extracted();                                         /* Check if video has been extracted */
+int is_valid_integer(const char *str);                         /* Validate string is a positive integer */
+int is_valid_timestamp(const char *str);                       /* Validate string is in HH:MM:SS format */
 
 /**
  * Reset all configuration values to defaults
@@ -102,15 +102,15 @@ void set_defaults()
     HEIGHT = DEFAULT_HEIGHT;
     START_TIME = DEFAULT_START_TIME;
     DURATION = DEFAULT_DURATION;
-    VIDEO_PATH[0] = '\0';  /* Clear video path */
-    VIDEO_NAME[0] = '\0';  /* Clear video name */
+    VIDEO_PATH[0] = '\0'; /* Clear video path */
+    VIDEO_NAME[0] = '\0'; /* Clear video name */
 }
 
 /**
  * Main program entry point
- * 
+ *
  * Parses command line arguments and executes requested operations
- * 
+ *
  * @param argc Number of command line arguments
  * @param argv Array of command line argument strings
  * @return Exit status code
@@ -118,9 +118,10 @@ void set_defaults()
 int main(int argc, char *argv[])
 {
     /* Install SIGINT handler to gracefully handle Ctrl+C */
+
     struct sigaction sa = {0};
     sa.sa_handler = handle_sigint;
-    sa.sa_flags = SA_RESTART;  /* Automatically restart interrupted system calls */
+    sa.sa_flags = SA_RESTART; /* Automatically restart interrupted system calls */
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
 
@@ -242,7 +243,7 @@ int main(int argc, char *argv[])
         base = base ? base + 1 : VIDEO_PATH;
         strncpy(VIDEO_NAME, base, sizeof(VIDEO_NAME) - 1);
         VIDEO_NAME[sizeof(VIDEO_NAME) - 1] = '\0'; /* Ensure null termination */
-        
+
         /* Remove extension from filename */
         char *dot = strrchr(VIDEO_NAME, '.');
         if (dot)
@@ -251,16 +252,16 @@ int main(int argc, char *argv[])
         /* Process the video */
         setup();
     }
-    
+
     /* Play the video (either the default or the one that was just processed) */
     play();
     return EXIT_SUCCESS;
 }
 /**
  * Reset all directories and return configuration to defaults
- * 
+ *
  * This function prompts the user for confirmation before removing all extracted
- * files and resetting the configuration to default values. This operation 
+ * files and resetting the configuration to default values. This operation
  * cannot be undone.
  */
 void reset()
@@ -310,7 +311,7 @@ void reset()
 
 /**
  * Set up the environment for video processing
- * 
+ *
  * This function prepares the directory structure and extracts the necessary
  * assets from the video file: audio track, video frames, and converts frames
  * to ASCII art. This is the main preparation step before playback.
@@ -322,7 +323,7 @@ void setup()
     {
         fatal_error("Invalid path provided for video extraction, path is NULL");
     }
-    
+
     // Create the necessary directory structure if it doesn't exist
     create_dir(ASSETS_DIR);
     create_dir(ASCII_DIR);
@@ -330,14 +331,14 @@ void setup()
     create_dir(FRAMES_DIR);
 
     // Extract components from the video file
-    extract_audio();          // Extract audio track
+    extract_audio();            // Extract audio track
     extract_images_grayscale(); // Extract video frames as grayscale images
-    batch_convert_to_ascii(); // Convert frames to ASCII art
+    batch_convert_to_ascii();   // Convert frames to ASCII art
 }
 
 /**
  * Play the audio track of the current video
- * 
+ *
  * This function uses ffplay to play the extracted audio file
  * corresponding to the current video. All ffplay output is redirected
  * to /dev/null to avoid cluttering the terminal.
@@ -353,25 +354,25 @@ void play_audio()
     // Construct path to the audio file for current video
     char audio_file[PATH_MAX + sizeof(AUDIO_DIR) + sizeof(".mp3") + sizeof(VIDEO_NAME)];
     snprintf(audio_file, sizeof(audio_file), AUDIO_DIR "/%s.mp3", VIDEO_NAME);
-    
+
     // Execute ffplay to play the audio file without display and exit when done
     execlp("ffplay", "ffplay",
-           "-nodisp",      // No video display
-           "-autoexit",    // Exit when playback is complete
+           "-nodisp",            // No video display
+           "-autoexit",          // Exit when playback is complete
            "-loglevel", "quiet", // Suppress all messages
-           audio_file,     // Path to the audio file
+           audio_file,           // Path to the audio file
            NULL);
-           
+
     // This line only executes if execlp fails
     fatal_error("Failed to exec ffplay");
 }
 
 /**
  * Render a single ASCII art frame to the terminal
- * 
+ *
  * This function reads an ASCII art file and prints its contents to stdout,
  * displaying a single frame of the ASCII video.
- * 
+ *
  * @param frame_path Path to the ASCII art file to display
  */
 void draw_ascii_frame(const char *frame_path)
@@ -402,7 +403,7 @@ void draw_ascii_frame(const char *frame_path)
 }
 /**
  * Draw ASCII frames in sequence to create video playback
- * 
+ *
  * This function creates the visual playback by displaying ASCII art frames
  * in the terminal at the specified frame rate. It:
  * 1. Gets a sorted list of frame files for the current video
@@ -445,14 +446,14 @@ void draw_frames()
 
         // Calculate and implement delay between frames based on FPS
         // Convert frames per second to microseconds per frame
-        int delay_us = 1000000 / atoi(FPS); 
-        
+        int delay_us = 1000000 / atoi(FPS);
+
         // Create timespec structure for nanosleep
         struct timespec ts = {
-            .tv_sec = delay_us / 1000000,         // Seconds part
+            .tv_sec = delay_us / 1000000,          // Seconds part
             .tv_nsec = (delay_us % 1000000) * 1000 // Nanoseconds part
         };
-        
+
         // Pause execution for the calculated time
         nanosleep(&ts, NULL);
     }
@@ -463,10 +464,10 @@ void draw_frames()
 
 /**
  * Check if the current video has been properly extracted and is ready for playback
- * 
+ *
  * This function verifies that all necessary assets (audio and ASCII frames)
  * exist for the current video before attempting playback.
- * 
+ *
  * @return true if all video assets are available, false otherwise
  */
 int video_extracted()
@@ -474,7 +475,7 @@ int video_extracted()
     // Define file patterns to check for audio and ASCII frame files
     char audio_file[PATH_MAX + sizeof(AUDIO_DIR) + sizeof(".mp3") + sizeof(VIDEO_NAME)] = {0};
     char ascii_file[PATH_MAX + sizeof(ASCII_DIR) + sizeof(".txt") + sizeof(VIDEO_NAME)] = {0};
-    
+
     // Format the patterns using the current video name
     snprintf(audio_file, sizeof(audio_file), "%s.mp3", VIDEO_NAME);
     snprintf(ascii_file, sizeof(ascii_file), "%s_gray_*.txt", VIDEO_NAME);
@@ -484,24 +485,24 @@ int video_extracted()
     // 2. ASCII directory contains files
     // 3. Audio directory contains the expected audio file
     // 4. ASCII directory contains matching frame files
-    if (is_directory_empty(AUDIO_DIR) || 
-        is_directory_empty(ASCII_DIR) || 
-        !dir_contains(AUDIO_DIR, audio_file) || 
+    if (is_directory_empty(AUDIO_DIR) ||
+        is_directory_empty(ASCII_DIR) ||
+        !dir_contains(AUDIO_DIR, audio_file) ||
         !dir_contains(ASCII_DIR, ascii_file))
     {
-        return false;  // Missing required assets
+        return false; // Missing required assets
     }
-    
-    return true;  // All required assets are available
+
+    return true; // All required assets are available
 }
 
 /**
  * Check if a directory contains files matching a specified pattern
- * 
+ *
  * This function examines a directory to determine if it contains any files
  * that match the specified pattern. The pattern can include wildcards
  * and is processed using fnmatch.
- * 
+ *
  * @param dir_path Path to the directory to check
  * @param file_name File name pattern to match (can include wildcards)
  * @return true if a matching file exists, false otherwise
@@ -518,7 +519,7 @@ int dir_contains(const char *dir_path, const char *file_name)
     DIR *dir = opendir(dir_path);
     if (dir == NULL)
     {
-        return false;  // Directory doesn't exist or can't be accessed
+        return false; // Directory doesn't exist or can't be accessed
     }
 
     // Iterate through directory entries
@@ -530,7 +531,7 @@ int dir_contains(const char *dir_path, const char *file_name)
         if (fnmatch(file_name, entry->d_name, 0) == 0)
         {
             closedir(dir);
-            return true;  // Found a matching file
+            return true; // Found a matching file
         }
     }
 
@@ -540,12 +541,12 @@ int dir_contains(const char *dir_path, const char *file_name)
 }
 /**
  * Play the ASCII video with synchronized audio
- * 
+ *
  * This function plays the ASCII video for the current VIDEO_NAME by:
  * 1. Checking if the video has been properly extracted
  * 2. Creating two child processes - one for displaying frames and one for playing audio
  * 3. Synchronizing these processes to create a complete playback experience
- * 
+ *
  * If the video hasn't been extracted (except for the default video),
  * the function will exit with an error message.
  */
@@ -553,6 +554,10 @@ void play()
 {
     // Verify the video exists and has been properly extracted
     // Skip this check for the default video which may be pre-installed
+    if (is_directory_empty(ASCII_DIR))
+    {
+        user_fatal("No ASCII art frames found. Please extract video using -i <video_path> first.");
+    }
     if (!video_extracted() && strcmp(VIDEO_NAME, DEFAULT_VIDEO_NAME) != 0)
     {
         user_fatal("%s doesn't exist, try inserting a new one with -i <video_path>", VIDEO_NAME);
@@ -588,19 +593,19 @@ void play()
         {
             // Parent process: wait for both child processes to complete
             int status;
-            waitpid(pid, &status, 0);   // Wait for frame display to finish
-            waitpid(pid2, &status, 0);  // Wait for audio playback to finish
+            waitpid(pid, &status, 0);  // Wait for frame display to finish
+            waitpid(pid2, &status, 0); // Wait for audio playback to finish
         }
     }
 }
 
 /**
  * Empty a directory by removing all its files and subdirectories
- * 
+ *
  * This function recursively removes all contents of the specified directory
  * without removing the directory itself. It handles both files (using unlink)
  * and subdirectories (recursively emptying then using rmdir).
- * 
+ *
  * @param dir_name Path to the directory to be emptied
  */
 void empty_directory(const char *dir_name)
@@ -652,10 +657,10 @@ void empty_directory(const char *dir_name)
 
 /**
  * Create a directory if it doesn't already exist
- * 
+ *
  * This function checks if the specified directory exists, and if not,
  * creates it with standard permissions (0755 = rwxr-xr-x).
- * 
+ *
  * @param dir_name Path to the directory to create
  */
 void create_dir(const char *dir_name)
@@ -726,7 +731,7 @@ char *get_usage_msg(const char *program_name)
 
 /**
  * Extract audio track from the input video file
- * 
+ *
  * This function uses ffmpeg to extract the audio component from the specified
  * video file and saves it as an MP3 file. It runs ffmpeg in a child process
  * with a progress spinner displayed to the user. The audio extraction respects
@@ -743,13 +748,13 @@ void extract_audio()
         // Construct output path for the extracted audio file
         char out[PATH_MAX + sizeof(AUDIO_DIR) + sizeof("/.mp3") + sizeof(VIDEO_NAME)];
         snprintf(out, sizeof(out), AUDIO_DIR "/%s.mp3", VIDEO_NAME);
-        
+
         // Remove existing file to prevent ffmpeg prompt about overwriting
         if (access(out, F_OK) == 0)
         {
             unlink(out); // Remove the existing file
         }
-        
+
         // Prepare ffmpeg command arguments
         char *args[20]; // Array to hold command and arguments
         int arg_count = 0;
@@ -771,13 +776,13 @@ void extract_audio()
         }
 
         // Audio extraction parameters
-        args[arg_count++] = "-vn";           // No video
-        args[arg_count++] = "-acodec";       // Audio codec
-        args[arg_count++] = "libmp3lame";    // Use MP3 encoder
-        args[arg_count++] = "-q:a";          // Audio quality
-        args[arg_count++] = "2";             // High quality (0-9, lower is better)
-        args[arg_count++] = out;             // Output file path
-        args[arg_count++] = NULL;            // Terminate the arguments list
+        args[arg_count++] = "-vn";        // No video
+        args[arg_count++] = "-acodec";    // Audio codec
+        args[arg_count++] = "libmp3lame"; // Use MP3 encoder
+        args[arg_count++] = "-q:a";       // Audio quality
+        args[arg_count++] = "2";          // High quality (0-9, lower is better)
+        args[arg_count++] = out;          // Output file path
+        args[arg_count++] = NULL;         // Terminate the arguments list
 
         // Execute ffmpeg with the prepared arguments
         execvp("ffmpeg", args);
@@ -819,7 +824,7 @@ void extract_audio()
 
 /**
  * Extract grayscale frames from the input video file
- * 
+ *
  * This function uses ffmpeg to extract frames from the video file at the specified
  * FPS rate, converting them to grayscale and resizing them based on the configured
  * width. Each frame is saved as a separate PNG file in the FRAMES_DIR directory.
@@ -911,17 +916,17 @@ void extract_images_grayscale()
 }
 /**
  * Convert all extracted video frames to ASCII art
- * 
+ *
  * This function processes all PNG frames in FRAMES_DIR directory and converts them
  * to ASCII art text files using jp2a. The conversion happens in a separate
  * child process, with each frame being converted by a dedicated grandchild process.
  * A spinner is displayed during conversion to provide visual feedback to the user.
- * 
+ *
  * Process structure:
  * - Parent process: Shows spinner and waits for completion
  * - Child process: Iterates through frames and manages conversion
  * - Grandchild processes: Convert individual frames using jp2a
- * 
+ *
  * Dependencies: jp2a must be installed and accessible in the PATH
  */
 void batch_convert_to_ascii()
@@ -999,10 +1004,10 @@ void batch_convert_to_ascii()
         // Display a spinner while the conversion is in progress
         spinner_t *sp = spinner_create("Rendering ASCII art");
         spinner_start(sp);
-        
+
         // Wait for the child process to complete all conversions
         waitpid(pid, NULL, 0);
-        
+
         // Stop the spinner and clean up
         spinner_stop(sp, true);
         spinner_destroy(sp);
@@ -1011,10 +1016,10 @@ void batch_convert_to_ascii()
 
 /**
  * Checks if a directory is empty
- * 
+ *
  * This function examines the specified directory to determine if it contains
  * any files or subdirectories (excluding the special directory entries "." and "..").
- * 
+ *
  * @param dir_path Path to the directory to check
  * @return 1 if the directory is empty
  *         0 if the directory contains files or subdirectories
@@ -1106,7 +1111,7 @@ int is_valid_integer(const char *str)
         if (str[i] < '0' || str[i] > '9')
             return 0; // Found a non-digit character
     }
-    
+
     return 1; // All characters are digits
 }
 
