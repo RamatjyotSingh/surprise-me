@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ASCII Video Player</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: #000;
+            color: #0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #ascii-container {
+            white-space: pre;
+            line-height: 1;
+            margin: 20px 0;
+            font-size: 12px;
+            overflow: hidden;
+        }
+        
+        .control-panel {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        button, input, select {
+            background: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 8px 12px;
+            font-family: monospace;
+        }
+        
+        .progress {
+            width: 100%;
+            max-width: 500px;
+            height: 20px;
+            background: #222;
+            margin: 10px 0;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #0f0;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>ASCII Video Player</h1>
+    
+    <div class="control-panel">
+        <input type="file" id="video-input" accept="video/*">
+        <button id="play-btn" disabled>Play</button>
+        <button id="stop-btn" disabled>Stop</button>
+    </div>
+    
+    <div class="control-panel">
+        <label for="fps">FPS:</label>
+        <input type="number" id="fps" min="1" max="30" value="10">
+        
+        <label for="width">Width:</label>
+        <input type="number" id="width" min="20" max="200" value="80">
+        
+        <label for="height">Height:</label>
+        <input type="number" id="height" min="10" max="100" value="40">
+    </div>
+    
+    <div class="progress">
+        <div id="progress-bar" class="progress-bar"></div>
+    </div>
+    
+    <pre id="ascii-container"></pre>
+    
+    <script>
+        // Define Module before loading the WASM script
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log("WASM module loaded");
+                document.getElementById('video-input').addEventListener('change', handleVideoSelect);
+                document.getElementById('play-btn').addEventListener('click', playVideo);
+                document.getElementById('stop-btn').addEventListener('click', stopVideo);
+                document.getElementById('fps').addEventListener('change', updateConfig);
+                document.getElementById('width').addEventListener('change', updateConfig);
+                document.getElementById('height').addEventListener('change', updateConfig);
+            }
+        };
+        
+        function updateConfig() {
+            const fps = parseInt(document.getElementById('fps').value) || 10;
+            const width = parseInt(document.getElementById('width').value) || 80;
+            const height = parseInt(document.getElementById('height').value) || 40;
+            
+            if (Module._setConfig) {
+                Module._setConfig(fps, width, height, 0, 0);
+            }
+        }
+        
+        function handleVideoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (Module._cleanup) Module._cleanup();
+            
+            // Create video element for processing
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.muted = true;
+            
+            // Enable play controls when video is ready
+            video.onloadedmetadata = function() {
+                document.getElementById('play-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = false;
+                processVideo(video);
+            };
+            
+            video.load();
+        }
+        
+        function processVideo(video) {
+            const fps = parseInt(document.getElementById('fps').value) || 10;
+            const width = parseInt(document.getElementById('width').value) || 80;
+            const height = parseInt(document.getElementById('height').value) || 40;
+            
+            // Update the module configuration
+            if (Module._setConfig) {
+                Module._setConfig(fps, width, height, 0, 0);
+            }
+            
+            // Clean up previous frames if needed
+            if (Module._cleanup) {
+                Module._cleanup();
+            }
+            
+            // Create a canvas for frame extraction
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Calculate the number of frames to extract
+            const duration = video.duration;
+            const totalFrames = Math.floor(duration * fps);
+            const progressBar = document.getElementById('progress-bar');
+            
+            document.getElementById('ascii-container').textContent = 
+                "Converting video to ASCII...\n" +
+                `Video duration: ${duration.toFixed(2)}s at ${fps} FPS = ${totalFrames} frames`;
+            
+            let frameIndex = 0;
+            let processedFrames = 0;
+            
+            // Process frames sequentially
+            function processNextFrame() {
+                if (frameIndex >= totalFrames) {
+                    // Processing complete
+                    document.getElementById('ascii-container').textContent = 
+                        `Processing complete! ${processedFrames} frames converted to ASCII.\nPress Play to start.`;
+                    return;
+                }
+                
+                // Update progress bar
+                const progress = (frameIndex / totalFrames) * 100;
+                progressBar.style.width = progress + '%';
+                
+                // Set video to the current frame time
+                const frameTime = frameIndex / fps;
+                video.currentTime = frameTime;
+                
+                // Wait for the video to seek to the correct time
+                video.onseeked = function() {
+                    // Draw current video frame to canvas
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // Get image data
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    try {
+                        // Allocate memory in the WebAssembly module
+                        const heapSpace = Module._malloc(imageData.data.length);
+                        
+                        // Copy image data to the WebAssembly heap
+                        Module.HEAPU8.set(imageData.data, heapSpace);
+                        
+                        // Process the frame to ASCII
+                        const asciiPtr = Module._processFrame(
+                            heapSpace, 
+                            canvas.width, 
+                            canvas.height, 
+                            4  // RGBA format
+                        );
+                        
+                        // Get the ASCII result
+                        const asciiFrame = Module.UTF8ToString(asciiPtr);
+                        
+                        // Store the frame in the module
+                        if (Module._storeFrame) {
+                            // Allocate memory for the ASCII string
+                            const stringSize = asciiFrame.length + 1; // +1 for null terminator
+                            const stringPtr = Module._malloc(stringSize);
+                            
+                            // Copy the string to WebAssembly memory
+                            Module.stringToUTF8(asciiFrame, stringPtr, stringSize);
+                            
+                            // Store the frame
+                            Module._storeFrame(stringPtr);
+                            
+                            // Free the string memory
+                            Module._free(stringPtr);
+                        }
+                        
+                        // Free allocated memory
+                        Module._free(heapSpace);
+                        
+                        processedFrames++;
+                        
+                        // Show a preview of the current frame occasionally
+                        if (frameIndex % 10 === 0) {
+                            document.getElementById('ascii-container').textContent = 
+                                `Processing: ${Math.floor(progress)}% complete\n${asciiFrame}`;
+                        }
+                        
+                        // Process next frame
+                        frameIndex++;
+                        setTimeout(processNextFrame, 0);
+                        
+                    } catch (error) {
+                        console.error("Error processing frame:", error);
+                        document.getElementById('ascii-container').textContent = 
+                            "Error processing video: " + error.message;
+                    }
+                };
+            }
+            
+            // Start processing
+            processNextFrame();
+        }
+
+        function playVideo() {
+            console.log("Play video");
+            if (Module._startPlayback) {
+                document.getElementById('play-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+                Module._startPlayback();
+            } else {
+                console.error("startPlayback function not available in WebAssembly module");
+            }
+        }
+
+        function stopVideo() {
+            console.log("Stop video");
+            if (Module._stopPlayback) {
+                document.getElementById('play-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+                Module._stopPlayback();
+            } else {
+                console.error("stopPlayback function not available in WebAssembly module");
+            }
+        }
+
+        function renderAsciiFrame(frameData) {
+            document.getElementById('ascii-container').textContent = frameData;
+        }
+    </script>
+    <!-- Load the WASM module after defining Module -->
+    <script src="sm_wasm.js"></script>
+</body>
+</html>
