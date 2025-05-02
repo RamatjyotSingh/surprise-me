@@ -337,34 +337,70 @@ void setup()
 }
 
 /**
+ * Find an available media player
+ *
+ * This function checks for the availability of common media players
+ * (ffplay, mpv, mplayer, vlc, aplay) and returns the first one found.
+ *
+ * @return A string containing the name of the available player, or NULL if none are found
+ */
+char* find_available_player()
+{
+    static const char* players[] = {
+        "ffplay", "mpv", "mplayer", "vlc", "aplay", NULL
+    };
+    
+    for (int i = 0; players[i] != NULL; i++) {
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "/usr/bin/%s", players[i]);
+        if (access(path, X_OK) == 0) {
+            return (char*)players[i];
+        }
+    }
+    
+    return NULL;
+}
+
+/**
  * Play the audio track of the current video
  *
- * This function uses ffplay to play the extracted audio file
- * corresponding to the current video. All ffplay output is redirected
- * to /dev/null to avoid cluttering the terminal.
+ * This function uses an available media player to play the extracted audio file
+ * corresponding to the current video. All output is redirected to /dev/null
+ * to avoid cluttering the terminal.
  */
 void play_audio()
 {
-    // Redirect standard output and error to /dev/null to suppress ffplay output
+    // Redirect output
     int fd = open("/dev/null", O_RDWR);
     dup2(fd, STDOUT_FILENO);
     dup2(fd, STDERR_FILENO);
     close(fd);
 
-    // Construct path to the audio file for current video
+    // Build audio file path
     char audio_file[PATH_MAX + sizeof(AUDIO_DIR) + sizeof(".mp3") + sizeof(VIDEO_NAME)];
     snprintf(audio_file, sizeof(audio_file), AUDIO_DIR "/%s.mp3", VIDEO_NAME);
 
-    // Execute ffplay to play the audio file without display and exit when done
-    execlp("ffplay", "ffplay",
-           "-nodisp",            // No video display
-           "-autoexit",          // Exit when playback is complete
-           "-loglevel", "quiet", // Suppress all messages
-           audio_file,           // Path to the audio file
-           NULL);
-
-    // This line only executes if execlp fails
-    fatal_error("Failed to exec ffplay");
+    // Find available player
+    char* player = find_available_player();
+    if (!player) {
+        user_fatal("No media player found. Please install ffplay, mpv, or mplayer.");
+    }
+    
+    // Execute appropriate player with right arguments
+    if (strcmp(player, "ffplay") == 0) {
+        execlp(player, player, "-nodisp", "-autoexit", "-loglevel", "quiet", audio_file, NULL);
+    } else if (strcmp(player, "mpv") == 0) {
+        execlp(player, player, "--no-video", "--really-quiet", audio_file, NULL);
+    } else if (strcmp(player, "mplayer") == 0) {
+        execlp(player, player, "-novideo", "-really-quiet", audio_file, NULL);
+    } else if (strcmp(player, "vlc") == 0) {
+        execlp(player, player, "--intf", "dummy", "--no-video", audio_file, NULL);
+    } else if (strcmp(player, "aplay") == 0) {
+        execlp(player, player, "-q", audio_file, NULL);
+    }
+    
+    // If we get here, execution failed
+    fatal_error("Failed to play audio with %s", player);
 }
 
 /**
@@ -997,7 +1033,7 @@ void batch_convert_to_ascii()
 
         // Clean up and exit the child process
         closedir(dir);
-        _exit(EXIT_SUCCESS);
+        exit(EXIT_SUCCESS);
     }
     else // Parent process
     {
