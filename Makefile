@@ -3,7 +3,7 @@ CFLAGS = -Wall -Werror -Wextra -Wpedantic -D_FORTIFY_SOURCE=3 -g
 LDFLAGS =
 OBJS = sm.o err.o spinner.o
 
-.PHONY: all clean debug frames run run_debug kill help
+.PHONY: all clean debug frames run run_debug kill help macos
 
 all: sm
 
@@ -18,6 +18,15 @@ err.o: err.c err.h
 
 spinner.o: spinner.c spinner.h colors.h
 	$(CC) $(CFLAGS) -c spinner.c
+
+# macOS specific target
+macos: CFLAGS += -D_DARWIN_C_SOURCE
+macos: LDFLAGS += -L/usr/local/lib
+macos: sm_mac.o err.o spinner.o
+	$(CC) $(CFLAGS) -o sm_mac $^ $(LDFLAGS)
+
+sm_mac.o: sm_mac.c err.h spinner.h
+	$(CC) $(CFLAGS) -c sm_mac.c
 
 clean:
 	rm -f sm $(OBJS) err.log
@@ -56,3 +65,4 @@ help:
 	@echo "  run_debug  - Build with debug flags and launch GDB"
 	@echo "  kill       - Kill running sm/ffplay and clean"
 	@echo "  help       - Display this help message"
+	@echo "  macos      - Build the program for macOS"
